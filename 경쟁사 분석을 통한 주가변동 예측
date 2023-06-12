@@ -41,7 +41,7 @@ lines(month_date, SMA(month_df$종가, n = 20), col = "red")
 lines(month_date, SMA(month_df$종가, n = 60), col = "green")
 
 # 범례 추가
-legend("topright", legend = c("5일선", "20일선", "60일선"), col = c("blue", "red", "green"), lty = 1)
+legend("topleft", legend = c("5일선", "20일선", "60일선"), col = c("blue", "red", "green"), lty = 1)
 
 # week_date <- as.Date(week_df$날짜, format = "%Y%m%d")
 # plot(week_date, week_df$종가, type = "l", xlab = "date", ylab = "종가", main = "주별 주가 분석")
