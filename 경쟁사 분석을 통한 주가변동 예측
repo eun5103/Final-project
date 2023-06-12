@@ -126,10 +126,10 @@ legend(x = 0.2, y = 25, legend = c("영업이익", "당기순이익"),
 
 # PER과 EPS(분기)
 date <- gsub("\\.", "", quarter$날짜)
-str(date)
+
 par(mfrow=c(1,2))
 plot(quarter$`EPS(원)`, type = "b", pch = 16, col = "blue",
-     xlab = "분기", ylab = "PER(배)", main = "EPS(주당순이익)")
+     xlab = "분기", ylab = "EPS(배)", main = "EPS(주당순이익)")
 
 plot(quarter$`PER(배)`,type = "b", pch = 16, col = "blue",
      xlab = "분기", ylab = "PER(배)", main = "RER(주가수익비율)")
@@ -149,6 +149,8 @@ colnames(day_df) <- c("날짜", "시가", "고가", "저가", "종가", "거래�
 
 # 일별 주가 그래프
 day_date <- as.Date(day_df$날짜, format = "%Y%m%d")
+
+par(mfrow=c(1,1))
 plot(day_date, day_df$종가, type = "l", xlab = "date", ylab = "종가", main = "일별 주가 분석")
 
 # 5일선, 20일선, 60일선 추가
