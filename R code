@@ -1,9 +1,13 @@
 # install.packages("jsonlite")
 # install.packages("TTR")
+# install.packages("gridExtra")
+
 
 library(rvest)
 library(jsonlite)
 library(TTR)
+library(ggplot2)
+library(gridExtra)
 
 ######
 # 주제: 경쟁사 분석을 통한 주가변동 예측
@@ -68,25 +72,56 @@ get_changes <- function(df) {
 month <- get_changes(month_df)
 week <- get_changes(week_df)
 
-# 거래량과 증가비율 비교
-cor(month$종가,month$거래량)
+# 거래량 변화율과 증가율 관계 비교
+cor(week$종가,week$거래량)
+
+# 그래프
+ggplot(week, aes(x = week$종가, y = week$거래량)) +
+  geom_point() +  # 산점도
+  geom_smooth(method = "lm", se = FALSE) +  # 회귀선 추가
+  labs(title = "거래량 변화율과 증가율의 상관관계",
+       x = "증가율",
+       y = "거래량 변화율",
+       caption = paste("상관계수:", round(cor(week$종가,week$거래량), 2)))  # 제목과 축 레이블 설정
 
 ## 경쟁사(금영)의 악재와 호재
 # 답합 신고: 2011년 8월 중순(83~86)
 # 과징금 추가 부가: 2015년 10월 말(293~296)
 # 금영 매각: 2016년 2월 초(316~319)
-# 금영엔터테인먼트 상장 시도: 2019년 4월 말(483~486) <- 호제
+# 금영엔터테인먼트 상장 시도: 2019년 4월 말(483~486) <- 호재
 # 금영엔터테인먼트 상장 철회: 2019년 9월 초(502~505)
 # 금영엔터테인먼트 대표 횡령 논란: 2021년 10월~ (609~)
 
-# 악제
+# 악재
 bad_subset_week <- week[c(83:86, 293:296, 316:319, 502:505, 609:650), ]
 cor(bad_subset_week$종가,bad_subset_week$거래량)
 
-# 호제
+# 그래프(악재)
+plot1 <- ggplot(bad_subset_week, aes(x = bad_subset_week$종가, y = bad_subset_week$거래량)) +
+  geom_point() +  # 산점도
+  geom_smooth(method = "lm", se = FALSE) +  # 회귀선 추가
+  labs(title = "거래량 변화율과 증가율의 상관관계(악재)",
+       x = "증가율",
+       y = "거래량 변화율",
+       caption = paste("상관계수:", round(cor(bad_subset_week$종가,bad_subset_week$거래량), 2)))  # 제목과 축 레이블 설정
+
+# 호재
 good_subset_week <- week[c(483:486), ]
 cor(good_subset_week$종가,good_subset_week$거래량)
 
+
+# 그래프(호재)
+plot2 <- ggplot(good_subset_week, aes(x = good_subset_week$종가, y = good_subset_week$거래량)) +
+  geom_point() +  # 산점도
+  geom_smooth(method = "lm", se = FALSE) +  # 회귀선 추가
+  labs(title = "거래량 변화율과 증가율의 상관관계(호재)",
+       x = "증가율",
+       y = "거래량 변화율",
+       caption = paste("상관계수:", round(cor(good_subset_week$종가,good_subset_week$거래량), 2)))+ # 제목과 축 레이블 설정
+  ylim(min(bad_subset_week$거래량), max(bad_subset_week$거래량))
+
+# 그래프를 나란히 배열
+grid.arrange(plot1, plot2, nrow = 1)
 
 ## TJ미디어 실적 분석
 url <- "https://finance.naver.com/item/main.naver?code=032540"
@@ -125,8 +160,6 @@ legend(x = 0.2, y = 25, legend = c("영업이익", "당기순이익"),
 
 
 # PER과 EPS(분기)
-date <- gsub("\\.", "", quarter$날짜)
-
 par(mfrow=c(1,2))
 plot(quarter$`EPS(원)`, type = "b", pch = 16, col = "blue",
      xlab = "분기", ylab = "EPS(배)", main = "EPS(주당순이익)")
