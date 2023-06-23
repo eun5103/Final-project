@@ -1,0 +1,196 @@
+# install.packages("jsonlite")
+# install.packages("TTR")
+# install.packages("gridExtra")
+
+
+library(rvest)
+library(jsonlite)
+library(TTR)
+library(ggplot2)
+library(gridExtra)
+
+######
+# 주제: 경쟁사 분석을 통한 주가변동 예측
+# 부제: TJ미디어 기업이 노래 반주기 선도 기업으로 거듭난 배경과 향후 주가 예측
+
+## TJ미디어 정보 불러오기기
+
+# month data
+month_url <- "https://api.finance.naver.com/siseJson.naver?symbol=032540&requestType=1&startTime=20100101&endTime=20230610&timeframe=month"
+month_html <- read_html(month_url, Encoding = "euc-kr")
+
+month_content <- month_html %>% html_text()
+month_content <- gsub("'", '"', month_content)
+month_data <- fromJSON(month_content)
+month_df <- as.data.frame(month_data[-1,])
+colnames(month_df) <- c("날짜", "시가", "고가", "저가", "종가", "거래량", "외국인소진율")
+
+# week_data
+week_url <- "https://api.finance.naver.com/siseJson.naver?symbol=032540&requestType=1&startTime=20100101&endTime=20230610&timeframe=week"
+week_html <- read_html(week_url, Encoding = "euc-kr")
+
+week_content <- week_html %>% html_text()
+week_content <- gsub("'", '"', week_content)
+week_data <- fromJSON(week_content)
+week_df <- as.data.frame(week_data[-1,])
+colnames(week_df) <- c("날짜", "시가", "고가", "저가", "종가", "거래량", "외국인소진율")
+
+# 주가 분석
+month_date <- as.Date(month_df$날짜, format = "%Y%m%d")
+plot(month_date, month_df$종가, type = "l", xlab = "date", ylab = "종가", main = "월별 주가 분석")
+
+# 5일선, 20일선, 60일선 추가
+lines(month_date, SMA(month_df$종가, n = 5), col = "blue")
+lines(month_date, SMA(month_df$종가, n = 20), col = "red")
+lines(month_date, SMA(month_df$종가, n = 60), col = "green")
+
+# 범례 추가
+legend("topleft", legend = c("5일선", "20일선", "60일선"), col = c("blue", "red", "green"), lty = 1)
+
+# week_date <- as.Date(week_df$날짜, format = "%Y%m%d")
+# plot(week_date, week_df$종가, type = "l", xlab = "date", ylab = "종가", main = "주별 주가 분석")
+
+## 변동분 구하기
+
+get_changes <- function(df) {
+  df <- as.data.frame(lapply(df, as.numeric))
+  
+  price <- numeric(nrow(df))
+  volume <- numeric(nrow(df))
+  
+  for (i in 2:nrow(df)) {
+    price[i] <- ((df[i, "종가"] - df[i-1, "종가"])/df[i-1, "종가"])*100
+    volume[i] <- ((df[i, "거래량"] - df[i-1, "거래량"])/df[i-1, "거래량"])*100
+  }
+  
+  table <- data.frame(df$날짜, price, volume)
+  colnames(table) <- c("날짜", "종가", "거래량")
+  
+  return(table)
+}
+
+month <- get_changes(month_df)
+week <- get_changes(week_df)
+
+# 거래량 변화율과 증가율 관계 비교
+cor(week$종가,week$거래량)
+
+# 그래프
+ggplot(week, aes(x = week$종가, y = week$거래량)) +
+  geom_point() +  # 산점도
+  geom_smooth(method = "lm", se = FALSE) +  # 회귀선 추가
+  labs(title = "거래량 변화율과 증가율의 상관관계",
+       x = "증가율",
+       y = "거래량 변화율",
+       caption = paste("상관계수:", round(cor(week$종가,week$거래량), 2)))  # 제목과 축 레이블 설정
+
+## 경쟁사(금영)의 악재와 호재
+# 답합 신고: 2011년 8월 중순(83~86)
+# 과징금 추가 부가: 2015년 10월 말(293~296)
+# 금영 매각: 2016년 2월 초(316~319)
+# 금영엔터테인먼트 상장 시도: 2019년 4월 말(483~486) <- 호재
+# 금영엔터테인먼트 상장 철회: 2019년 9월 초(502~505)
+# 금영엔터테인먼트 대표 횡령 논란: 2021년 10월~ (609~)
+
+# 악재
+bad_subset_week <- week[c(83:86, 293:296, 316:319, 502:505, 609:650), ]
+cor(bad_subset_week$종가,bad_subset_week$거래량)
+
+# 그래프(악재)
+plot1 <- ggplot(bad_subset_week, aes(x = bad_subset_week$종가, y = bad_subset_week$거래량)) +
+  geom_point() +  # 산점도
+  geom_smooth(method = "lm", se = FALSE) +  # 회귀선 추가
+  labs(title = "거래량 변화율과 증가율의 상관관계(악재)",
+       x = "증가율",
+       y = "거래량 변화율",
+       caption = paste("상관계수:", round(cor(bad_subset_week$종가,bad_subset_week$거래량), 2)))  # 제목과 축 레이블 설정
+
+# 호재
+good_subset_week <- week[c(483:486), ]
+cor(good_subset_week$종가,good_subset_week$거래량)
+
+
+# 그래프(호재)
+plot2 <- ggplot(good_subset_week, aes(x = good_subset_week$종가, y = good_subset_week$거래량)) +
+  geom_point() +  # 산점도
+  geom_smooth(method = "lm", se = FALSE) +  # 회귀선 추가
+  labs(title = "거래량 변화율과 증가율의 상관관계(호재)",
+       x = "증가율",
+       y = "거래량 변화율",
+       caption = paste("상관계수:", round(cor(good_subset_week$종가,good_subset_week$거래량), 2)))+ # 제목과 축 레이블 설정
+  ylim(min(bad_subset_week$거래량), max(bad_subset_week$거래량))
+
+# 그래프를 나란히 배열
+grid.arrange(plot1, plot2, nrow = 1)
+
+## TJ미디어 실적 분석
+url <- "https://finance.naver.com/item/main.naver?code=032540"
+html <- read_html(url, encoding = "euc-kr")
+
+table <- html %>% 
+  html_nodes("div.sub_section") %>% 
+  html_table() %>% 
+  .[[5]]
+
+# data frame
+year <- as.data.frame(t(table[-2,c(2:4)]))
+quarter <- as.data.frame(t(table[-2,c(6:10)]))
+
+name <- c("날짜", t(table[-c(1:2),1]))
+colnames(year) <- name
+colnames(quarter) <- name
+
+# 손익계산서 분석(연간,분기)
+par(mfrow=c(1,2))
+
+# 연간
+barplot(as.numeric(year$영업이익)~year$날짜, ylim=c(-30,47),
+        xlab = "연간", ylab = "당기순이익", main = "손익계산서")
+lines(year$당기순이익,type = "b", pch = 16, col = "red")
+legend(x = 0.2, y = 45, legend = c("영업이익", "당기순이익"),
+       col = c("gray", "red"), lty = c(0, 1), pch = c(15, NA),
+       pt.cex = c(2.5, 1))
+# 분기
+barplot(as.numeric(quarter$영업이익)~quarter$날짜, ylim=c(0,25),
+        xlab = "분기", ylab = "당기순이익", main = "손익계산서")
+lines(quarter$당기순이익,type = "b", pch = 16, col = "red")
+legend(x = 0.2, y = 25, legend = c("영업이익", "당기순이익"),
+       col = c("gray", "red"), lty = c(0, 1), pch = c(15, NA),
+       pt.cex = c(2.5, 1))
+
+
+# PER과 EPS(분기)
+par(mfrow=c(1,2))
+plot(quarter$`EPS(원)`, type = "b", pch = 16, col = "blue",
+     xlab = "분기", ylab = "EPS(배)", main = "EPS(주당순이익)")
+
+plot(quarter$`PER(배)`,type = "b", pch = 16, col = "blue",
+     xlab = "분기", ylab = "PER(배)", main = "RER(주가수익비율)")
+
+
+# 차트 분석
+
+# day data
+day_url <- "https://api.finance.naver.com/siseJson.naver?symbol=032540&requestType=1&startTime=20200101&endTime=20230610&timeframe=day"
+day_html <- read_html(day_url, Encoding = "euc-kr")
+
+day_content <- day_html %>% html_text()
+day_content <- gsub("'", '"', day_content)
+day_data <- fromJSON(day_content)
+day_df <- as.data.frame(day_data[-1,])
+colnames(day_df) <- c("날짜", "시가", "고가", "저가", "종가", "거래량", "외국인소진율")
+
+# 일별 주가 그래프
+day_date <- as.Date(day_df$날짜, format = "%Y%m%d")
+
+par(mfrow=c(1,1))
+plot(day_date, day_df$종가, type = "l", xlab = "date", ylab = "종가", main = "일별 주가 분석")
+
+# 5일선, 20일선, 60일선 추가
+lines(day_date, SMA(day_df$종가, n = 5), col = "blue")
+lines(day_date, SMA(day_df$종가, n = 20), col = "red")
+lines(day_date, SMA(day_df$종가, n = 60), col = "green")
+
+# 범례 추가
+legend("topleft", legend = c("5일선", "20일선", "60일선"), col = c("blue", "red", "green"), lty = 1)
+
